@@ -1,0 +1,8 @@
+/node_modules
+/test/coverage
+/dist
+
+yarn-error.log
+
+# Keep environment variables out of version control
+.env

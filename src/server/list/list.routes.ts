@@ -1,0 +1,102 @@
+import { Express } from 'express';
+import { roleIsAtLeast, tokenAuthentication } from '../../utils/authentication';
+import route from '../../utils/route';
+import { isCreateListProps, isUpdateListProps } from './list.model';
+import { createList, findList, findLists, updateList } from './list.service';
+
+export default function (server: Express) {
+	server.get(
+		'/lists',
+		route(async (req, res) => {
+			const caller = await tokenAuthentication(req, res);
+			if (!caller) return res.headersSent || res.sendStatus(500);
+
+			const lists = await findLists();
+			res.status(200).send(lists);
+		})
+	);
+
+	server.get(
+		'/lists/:id',
+		route(async (req, res) => {
+			const caller = await tokenAuthentication(req, res);
+			if (!caller) return res.headersSent || res.sendStatus(500);
+
+			const id = Number(req.params.id);
+			if (Number.isNaN(id)) return res.status(422).send('Provided id is not a number');
+			const list = await findList(id);
+			if (!list) return res.status(404).send(`No list exists with the id ${id}`);
+
+			res.status(200).send(list);
+		})
+	);
+
+	server.post(
+		'/lists',
+		route(async (req, res) => {
+			const caller = await tokenAuthentication(req, res);
+			if (!caller) return res.headersSent || res.sendStatus(500);
+
+			const props = req.body;
+			if (!isCreateListProps(props))
+				return res.status(422).send('Provided properties can not create a list');
+
+			const list = await createList(props, caller);
+			res.status(201).send(list);
+		})
+	);
+
+	server.patch(
+		'/lists/:id',
+		route(async (req, res) => {
+			const caller = await tokenAuthentication(req, res);
+			if (!caller) return res.headersSent || res.sendStatus(500);
+
+			const id = Number(req.params.id);
+			if (Number.isNaN(id)) return res.status(422).send('Provided id is not a number');
+			const list = await findList(id);
+			if (!list) return res.status(404).send(`No list exists with the id ${id}`);
+
+			const props = req.body;
+			if (!isUpdateListProps(props))
+				return res.status(422).send('Provided properties cannot edit a list');
+
+			if (
+				caller.handle !== list.createdBy.handle &&
+				!roleIsAtLeast(caller.role, 'MOD') &&
+				Object.keys(props).some((value) =>
+					['comment', 'eventDate', 'fields', 'phoneNumber', 'responsible', 'submitted'].includes(
+						value
+					)
+				)
+			)
+				return res
+					.status(403)
+					.send('Must be creator of the list or a moderator to change those properties');
+
+			if (props.verified && !list.submitted)
+				return res.status(409).send("It's not possible to verify a list that isn't submitted");
+			if (
+				props.verified !== undefined &&
+				!roleIsAtLeast(caller.role, 'MOD') &&
+				(caller.role !== 'MANAGER' || caller.handle === list.createdBy.handle)
+			)
+				return res.status(403).send('User is not allowed to verify this list');
+
+			const expectedList: Record<string, string | null> = {
+				eventDate: props.eventDate ?? list.eventDate,
+				phoneNumber: props.phoneNumber ?? list.phoneNumber,
+				responsible: props.responsible ?? list.responsible,
+			};
+			if (
+				props.submitted &&
+				(!expectedList.eventDate || !expectedList.phoneNumber || !expectedList.responsible)
+			)
+				return res.status(409).send(`Can't submit a list that is missing required properties`);
+
+			const updatedList = await updateList(id, props, list);
+
+			res.status(200).send(updatedList);
+		})
+	);
+}

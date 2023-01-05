@@ -1,0 +1,24 @@
+on:
+  push:
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  linux-test:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository }}
+    name: Linux test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.0.2
+      - name: Setup Node
+        uses: actions/setup-node@v3.4.1
+        with:
+          node-version: latest
+          cache: 'yarn'
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      - name: Lint with prettier
+        run: yarn lint
+      - name: Run tests
+        run: yarn test
