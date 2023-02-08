@@ -4,7 +4,7 @@
 	"main": "index.js",
 	"license": "MIT",
 	"scripts": {
-		"db:create": "docker build -t cleaning-list-db ./",
+		"db:create": "docker build -f pgdb.Dockerfile -t cleaning-list-db ./",
 		"db:start": "docker run -d --name cleaning-list -p 5432:5432 cleaning-list-db",
 		"db:reset": "prisma migrate reset",
 		"migrate": "prisma migrate",
