@@ -2,7 +2,7 @@ import { PrismaClientInitializationError } from '@prisma/client/runtime';
 import { prismaConnect } from './prismaClient';
 import serverGenerator from './server';
 
-const port = process.env.PORT || 8000;
+const port = Number(process.env.PORT) || 8000;
 
 async function main() {
 	console.log('Connecting to database...');
