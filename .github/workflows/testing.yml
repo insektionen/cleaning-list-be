@@ -1,3 +1,5 @@
+name: Test
+
 on:
   push:
   pull_request:
@@ -20,5 +22,7 @@ jobs:
         run: yarn install --frozen-lockfile
       - name: Lint with prettier
         run: yarn lint
+      - name: Perform typechecks
+        run: yarn tsc --noEmit
       - name: Run tests
         run: yarn test
