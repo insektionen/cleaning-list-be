@@ -26,6 +26,7 @@ import {
 } from './user.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import route from '../../utils/route';
+import bodyFilter from '../../utils/bodyFilter';
 
 export default function (server: Express) {
 	server.get(
@@ -58,7 +59,7 @@ export default function (server: Express) {
 			const caller = await tokenPermissions(req, res, 'MANAGER');
 			if (!caller) return res.headersSent || res.sendStatus(500);
 
-			const userProps = req.body;
+			const userProps = bodyFilter(req.body, ['handle', 'name', 'email', 'password', 'role']);
 			if (!isCreateUserProps(userProps))
 				return res.status(422).send('Provided properties can not create a user');
 			if (!userProps.handle.match(handleRegex))
@@ -93,7 +94,7 @@ export default function (server: Express) {
 			const secret = req.headers.authorization;
 			if (!secret) return res.status(422).send('No secret provided');
 
-			const userProps = req.body;
+			const userProps = bodyFilter(req.body, ['handle', 'name', 'email', 'password']);
 			if (!isCreateUserWithSecretProps(userProps))
 				return res.status(422).send('Provided properties can not create a user');
 			if (!userProps.handle.match(handleRegex))
@@ -130,7 +131,13 @@ export default function (server: Express) {
 			if (!caller) return res.headersSent || res.sendStatus(500);
 
 			const { handle } = req.params;
-			const userProps = req.body;
+			const userProps = bodyFilter(req.body, [
+				'name',
+				'email',
+				'role',
+				'password',
+				'currentPassword',
+			]);
 			if (!isUpdateUserProps(userProps))
 				return res.status(422).send('Provided properties can not edit a user');
 			// Is allowed to edit the user
@@ -140,16 +147,20 @@ export default function (server: Express) {
 			// Does the user exist
 			const currentUser = await findUser(handle);
 			if (!currentUser) return res.status(404).send(`No user with the handle ${handle} existst`);
+			// Caller has higher role than target
+			if (!ownUser && roleIsAtLeast(currentUser.role, caller.role))
+				return res.status(403).send('Not allowed to edit this user');
 
-			// Caller is allowed to change role
-			if (userProps.role && !roleIsAtLeast(caller.role, 'MOD'))
-				return res.status(403).send('User must be a moderator to change a users roles');
-			if (userProps.role && roleIsAtLeast(userProps.role, 'MOD') && caller.role !== 'ADMIN')
-				return res.status(403).send(`User is not allowed to change to ${userProps.role}`);
+			// Caller is allowed to change role if trying to
+			if (userProps.role && userProps.role !== currentUser.role) {
+				if (ownUser) return res.status(403).send('Not allowed to change own role');
+				if (roleIsAtLeast(userProps.role, 'MOD') && caller.role !== 'ADMIN')
+					return res.status(403).send(`User is not allowed to change role to ${userProps.role}`);
+			}
 
 			// Validate caller can change password if trying to
 			if (userProps.password) {
-				if (!ownUser && (!roleIsAtLeast(caller.role, 'ADMIN') || currentUser.role === 'ADMIN'))
+				if (!ownUser && !roleIsAtLeast(caller.role, 'ADMIN'))
 					return res.status(403).send("Not allowed to set other user's password");
 				if (!userProps.currentPassword)
 					return res.status(422).send("Must provide current password to change user's password.");

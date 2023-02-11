@@ -442,6 +442,19 @@ describe('PATCH /users/:handle', () => {
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
 	});
 
+	it("Returns 403 when user doesn't have lower role than primary", async () => {
+		when(tokenAuthentication).mockResolvedValue(primary);
+		const user = usableUserFactory();
+		when(findUser).calledWith(user.handle).mockResolvedValue(user);
+
+		const props = { comment: 'test' };
+		const response = await supertest(server).patch(`/users/${user.handle}`).send(props);
+
+		expect(response.status).toBe(403);
+		expect(findUser).toHaveBeenCalledTimes(1);
+		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+	});
+
 	it('returns 403 when non-mod tries to change their role', async () => {
 		const primary = usableUserFactory({ role: 'BASE' });
 		when(tokenAuthentication).mockResolvedValue(primary);
@@ -490,9 +503,10 @@ describe('PATCH /users/:handle', () => {
 		expect(updateUser).toHaveBeenCalledTimes(1);
 	});
 
-	it('returns 403 when trying to change user password on an ADMIN', async () => {
+	it('returns 403 when trying to change user password not as an ADMIN', async () => {
+		const primary = usableUserFactory({ role: 'MOD' });
 		when(tokenAuthentication).mockResolvedValue(primary);
-		const user = usableUserFactory({ role: 'ADMIN' });
+		const user = usableUserFactory({ role: 'BASE' });
 		when(findUser).calledWith(user.handle).mockResolvedValue(user);
 
 		const props = { password: faker.internet.password() };
@@ -536,7 +550,7 @@ describe('PATCH /users/:handle', () => {
 
 	it('returns 409 when a collision occurs', async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
-		const user = usableUserFactory();
+		const user = usableUserFactory({ role: 'BASE' });
 		when(findUser).calledWith(user.handle).mockResolvedValue(user);
 		const props = { email: faker.internet.email(...user.name.split(' ')) };
 		when(updateUser)
@@ -555,7 +569,7 @@ describe('PATCH /users/:handle', () => {
 
 	it('returns 500 when database communication fails unexpectedly', async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
-		const user = usableUserFactory();
+		const user = usableUserFactory({ role: 'BASE' });
 		when(findUser).calledWith(user.handle).mockResolvedValue(user);
 		const props = { email: faker.internet.email(...user.name.split(' ')) };
 		when(updateUser).calledWith(user.handle, props).mockRejectedValue(new Error());
