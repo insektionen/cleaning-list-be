@@ -149,7 +149,7 @@ export default function (server: Express) {
 
 			// Validate caller can change password if trying to
 			if (userProps.password) {
-				if (!ownUser || (roleIsAtLeast(caller.role, 'ADMIN') && currentUser.role !== 'ADMIN'))
+				if (!ownUser && (!roleIsAtLeast(caller.role, 'ADMIN') || currentUser.role === 'ADMIN'))
 					return res.status(403).send("Not allowed to set other user's password");
 				if (!userProps.currentPassword)
 					return res.status(422).send("Must provide current password to change user's password.");

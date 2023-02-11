@@ -469,6 +469,40 @@ describe('PATCH /users/:handle', () => {
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
 	});
 
+	it('returns 200 when trying to change own password', async () => {
+		when(tokenAuthentication).mockResolvedValue(primary);
+		when(findUser).calledWith(primary.handle).mockResolvedValue(primary);
+		const currentPassword = faker.internet.password();
+		when(comparePasswordHash)
+			.calledWith(currentPassword, primary.passwordHash)
+			.mockResolvedValue(true);
+		const props = { password: faker.internet.password(), currentPassword };
+		const updatedUser = { ...primary, passwordHash: faker.random.alphaNumeric(20) };
+		when(updateUser).calledWith(primary.handle, props).mockResolvedValue(updatedUser);
+
+		const response = await supertest(server).patch(`/users/${primary.handle}`).send(props);
+
+		expect(response.status).toBe(200);
+		expect(response.body).toEqual(comparableUser(updatedUser));
+		expect(findUser).toHaveBeenCalledTimes(1);
+		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+		expect(comparePasswordHash).toHaveBeenCalledTimes(1);
+		expect(updateUser).toHaveBeenCalledTimes(1);
+	});
+
+	it('returns 403 when trying to change user password on an ADMIN', async () => {
+		when(tokenAuthentication).mockResolvedValue(primary);
+		const user = usableUserFactory({ role: 'ADMIN' });
+		when(findUser).calledWith(user.handle).mockResolvedValue(user);
+
+		const props = { password: faker.internet.password() };
+		const response = await supertest(server).patch(`/users/${user.handle}`).send(props);
+
+		expect(response.status).toBe(403);
+		expect(findUser).toHaveBeenCalledTimes(1);
+		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+	});
+
 	it("returns 422 when changing user password without providing primary's password", async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
 		const user = usableUserFactory({ role: 'BASE' });
