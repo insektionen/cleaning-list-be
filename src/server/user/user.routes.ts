@@ -147,14 +147,15 @@ export default function (server: Express) {
 			if (userProps.role && roleIsAtLeast(userProps.role, 'MOD') && caller.role !== 'ADMIN')
 				return res.status(403).send(`User is not allowed to change to ${userProps.role}`);
 
-			// Validate caller if trying to change password
-			if (userProps.password && !userProps.currentPassword)
-				return res.status(422).send("Must provide current password to change user's password.");
-			if (
-				userProps.password &&
-				!(await comparePasswordHash(userProps.currentPassword!, caller.passwordHash))
-			)
-				return res.status(403).send('Incorrect password');
+			// Validate caller can change password if trying to
+			if (userProps.password) {
+				if (!ownUser || (roleIsAtLeast(caller.role, 'ADMIN') && currentUser.role !== 'ADMIN'))
+					return res.status(403).send("Not allowed to set other user's password");
+				if (!userProps.currentPassword)
+					return res.status(422).send("Must provide current password to change user's password.");
+				if (!(await comparePasswordHash(userProps.currentPassword!, caller.passwordHash)))
+					return res.status(403).send('Incorrect password');
+			}
 
 			try {
 				const user = await updateUser(handle, userProps);
