@@ -1,5 +1,6 @@
 import { Express } from 'express';
 import { roleIsAtLeast, tokenAuthentication } from '../../utils/authentication';
+import bodyFilter from '../../utils/bodyFilter';
 import route from '../../utils/route';
 import { isCreateListProps, isUpdateListProps } from './list.model';
 import { createList, findList, findLists, updateList } from './list.service';
@@ -37,7 +38,7 @@ export default function (server: Express) {
 			const caller = await tokenAuthentication(req, res);
 			if (!caller) return res.headersSent || res.sendStatus(500);
 
-			const props = req.body;
+			const props = bodyFilter(req.body, ['type', 'version', 'structure', 'colors']);
 			if (!isCreateListProps(props))
 				return res.status(422).send('Provided properties can not create a list');
 
@@ -57,7 +58,15 @@ export default function (server: Express) {
 			const list = await findList(id);
 			if (!list) return res.status(404).send(`No list exists with the id ${id}`);
 
-			const props = req.body;
+			const props = bodyFilter(req.body, [
+				'fields',
+				'responsible',
+				'phoneNumber',
+				'eventDate',
+				'comment',
+				'submitted',
+				'verified',
+			]);
 			if (!isUpdateListProps(props))
 				return res.status(422).send('Provided properties cannot edit a list');
 
