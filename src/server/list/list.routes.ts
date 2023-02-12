@@ -1,4 +1,5 @@
 import { Express } from 'express';
+import moment from 'moment';
 import { roleIsAtLeast, tokenAuthentication } from '../../utils/authentication';
 import bodyFilter from '../../utils/bodyFilter';
 import route from '../../utils/route';
@@ -69,6 +70,8 @@ export default function (server: Express) {
 			]);
 			if (!isUpdateListProps(props))
 				return res.status(422).send('Provided properties cannot edit a list');
+			if (props.eventDate && moment().isBefore(props.eventDate))
+				return res.status(422).send('Event date cannot be in the future');
 
 			if (
 				caller.handle !== list.createdBy.handle &&
