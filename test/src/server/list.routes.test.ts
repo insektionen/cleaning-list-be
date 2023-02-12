@@ -186,8 +186,21 @@ describe('PATCH /lists/:id', () => {
 		when(findList).calledWith(1).mockResolvedValue(list);
 
 		const props = { comment: 5 };
-
 		const response = await supertest(server).patch('/lists/1').send(props);
+
+		expect(response.status).toBe(422);
+		expect(findList).toHaveBeenCalledTimes(1);
+		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+	});
+
+	it('Returns 422 for eventDate in the future', async () => {
+		when(tokenAuthentication).mockResolvedValue(primary);
+		const list = usableListFactory({ id: 1 });
+		when(findList).calledWith(1).mockResolvedValue(list);
+
+		const props = { eventDate: faker.date.future().toISOString().slice(0, 10) };
+		const response = await supertest(server).patch('/lists/1').send(props);
+
 		expect(response.status).toBe(422);
 		expect(findList).toHaveBeenCalledTimes(1);
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
