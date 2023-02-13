@@ -22,6 +22,7 @@ import {
 	findUserResetToken,
 	findUsers,
 	generateUserResetToken,
+	setUserLastSignIn,
 	updateUser,
 } from './user.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
@@ -108,7 +109,7 @@ export default function (server: Express) {
 				return res.status(400).send('Incorrect secret');
 
 			try {
-				const user = await createUser(userProps);
+				const user = await createUser(userProps, true);
 				res.status(201).send(user);
 			} catch (e) {
 				if (e instanceof PrismaClientKnownRequestError) {
@@ -184,6 +185,8 @@ export default function (server: Express) {
 			const user = await tokenAuthentication(req, res);
 			if (!user) return res.headersSent || res.sendStatus(500);
 
+			setUserLastSignIn(user.handle);
+
 			res.status(200).send(user);
 		})
 	);
@@ -198,6 +201,8 @@ export default function (server: Express) {
 			if (!user) return res.status(404).send(`No user with the username ${username} exists`);
 			if (!(await comparePasswordHash(password, user.passwordHash)))
 				return res.status(401).send('Incorrect password');
+
+			setUserLastSignIn(user.handle);
 
 			res.status(200).send(user);
 		})
