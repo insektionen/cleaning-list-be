@@ -11,6 +11,7 @@ import {
 	findUserResetToken,
 	findUsers,
 	generateUserResetToken,
+	setUserLastSignIn,
 	updateUser,
 } from '../../../src/server/user/user.service';
 import { faker } from '@faker-js/faker';
@@ -39,6 +40,7 @@ jest.mock('../../../src/server/user/user.service', () => ({
 	findUsers: jest.fn(),
 	generateUserResetToken: jest.fn(),
 	updateUser: jest.fn(),
+	setUserLastSignIn: jest.fn(),
 }));
 
 jest.mock('../../../src/utils/authentication', () => {
@@ -246,7 +248,7 @@ describe('POST /users/secret', () => {
 		when(comparePasswordHash).calledWith(secret, secretHash).mockResolvedValue(true);
 		const user = usableUserFactory({ role: 'BASE' });
 		const props = { password: faker.internet.password(), handle: user.handle, name: user.name };
-		when(createUser).calledWith(props).mockResolvedValue(user);
+		when(createUser).calledWith(props, true).mockResolvedValue(user);
 
 		const response = await supertest(server)
 			.post('/users/secret')
@@ -325,7 +327,7 @@ describe('POST /users/secret', () => {
 		const user = usableUserFactory({ role: 'BASE' });
 		const props = { password: faker.internet.password(), handle: user.handle, name: user.name };
 		when(createUser)
-			.calledWith(props)
+			.calledWith(props, true)
 			.mockRejectedValue(
 				new PrismaClientKnownRequestError('', { code: 'P2002', clientVersion: '4.8.0' })
 			);
@@ -346,7 +348,7 @@ describe('POST /users/secret', () => {
 		when(comparePasswordHash).calledWith(secret, secretHash).mockResolvedValue(true);
 		const user = usableUserFactory({ role: 'BASE' });
 		const props = { password: faker.internet.password(), handle: user.handle, name: user.name };
-		when(createUser).calledWith(props).mockRejectedValue(new Error());
+		when(createUser).calledWith(props, true).mockRejectedValue(new Error());
 
 		const response = await supertest(server)
 			.post('/users/secret')
@@ -579,12 +581,14 @@ describe('PATCH /users/:handle', () => {
 describe('GET /authenticate', () => {
 	it('Returns 200 for correct request', async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
+		when(setUserLastSignIn).mockResolvedValue();
 
 		const response = await supertest(server).get('/authenticate');
 
 		expect(response.status).toBe(200);
 		expect(response.body).toEqual(comparableUser(primary));
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+		expect(setUserLastSignIn).toHaveBeenCalledTimes(1);
 	});
 
 	it('returns 500 when tokenAuthentication returns null and sends no response', async () => {
@@ -603,6 +607,7 @@ describe('POST /users/login', () => {
 		when(findUser).calledWith(user.handle).mockResolvedValue(user);
 		const password = faker.internet.password();
 		when(comparePasswordHash).calledWith(password, user.passwordHash).mockResolvedValue(true);
+		when(setUserLastSignIn).mockResolvedValue();
 
 		const response = await supertest(server)
 			.post('/users/login')
@@ -612,6 +617,7 @@ describe('POST /users/login', () => {
 		expect(response.body).toEqual(comparableUser(user));
 		expect(findUser).toHaveBeenCalledTimes(1);
 		expect(comparePasswordHash).toHaveBeenCalledTimes(1);
+		expect(setUserLastSignIn).toHaveBeenCalledTimes(1);
 	});
 
 	it('Returns 422 when no username is provided', async () => {

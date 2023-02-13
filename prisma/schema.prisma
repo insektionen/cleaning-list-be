@@ -18,6 +18,7 @@ model User {
   role         Role        @default(BASE)
   lists        List[]
   visible      Boolean     @default(true)
+  lastSignedIn DateTime?
   token        UserToken?
   resetToken   ResetToken?
 

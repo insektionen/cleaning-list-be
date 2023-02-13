@@ -45,17 +45,17 @@ export async function findUserFromEmail(email: string): Promise<UsableUser | nul
 	return found && (await updateUserToken(found));
 }
 
-export async function createUser({
-	password,
-	handle,
-	...props
-}: CreateUserProps): Promise<UsableUser> {
+export async function createUser(
+	{ password, handle, ...props }: CreateUserProps,
+	setSignIn = false
+): Promise<UsableUser> {
 	const passwordHash = await generatePasswordHash(password);
 	return (await prismaClient.user.create({
 		data: {
 			...props,
 			handle: handle.toLowerCase(),
 			passwordHash,
+			lastSignedIn: setSignIn ? new Date() : undefined,
 			token: await newToken(),
 		},
 		select: USABLE_USER_SELECT,
@@ -94,6 +94,10 @@ export async function generateUserResetToken({ handle }: UsableUser): Promise<st
 
 export async function findUserResetToken(handle: string): Promise<ResetToken | null> {
 	return await prismaClient.resetToken.findUnique({ where: { userHandle: handle } });
+}
+
+export async function setUserLastSignIn(handle: string, time: Date = new Date()): Promise<void> {
+	await prismaClient.user.update({ where: { handle }, data: { lastSignedIn: time } });
 }
 
 export async function deleteUserResetToken(handle: string) {
