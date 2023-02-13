@@ -170,22 +170,6 @@ describe('POST /users', () => {
 		expect(tokenPermissions).toHaveBeenCalledTimes(1);
 	});
 
-	it('returns 403 when creating a moderator as a manager', async () => {
-		const primary = usableUserFactory({ role: 'MANAGER' });
-		when(tokenPermissions).mockResolvedValue(primary);
-
-		const props = {
-			handle: 'handle',
-			password: 'password',
-			name: 'Name Namesson',
-			role: 'MOD',
-		};
-		const response = await supertest(server).post('/users').send(props);
-
-		expect(response.status).toBe(403);
-		expect(tokenPermissions).toHaveBeenCalledTimes(1);
-	});
-
 	it('returns 403 when creating an admin as a moderator', async () => {
 		const primary = usableUserFactory({ role: 'MOD' });
 		when(tokenPermissions).mockResolvedValue(primary);

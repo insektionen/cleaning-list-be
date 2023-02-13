@@ -56,7 +56,7 @@ export default function (server: Express) {
 	server.post(
 		'/users',
 		route(async (req, res) => {
-			const caller = await tokenPermissions(req, res, 'MANAGER');
+			const caller = await tokenPermissions(req, res, 'MOD');
 			if (!caller) return res.headersSent || res.sendStatus(500);
 
 			const userProps = bodyFilter(req.body, ['handle', 'name', 'email', 'password', 'role']);
@@ -67,12 +67,10 @@ export default function (server: Express) {
 					.status(422)
 					.send('Username can only contain alphanumeric characters, dash, and underscore');
 
-			if (!roleIsAtLeast(caller.role, 'MOD') && !['BASE', undefined].includes(userProps.role))
+			if (userProps.role && roleIsAtLeast(userProps.role, 'MOD') && caller.role !== 'ADMIN')
 				return res
 					.status(403)
-					.send(`User must be a moderator to create another user with the role ${userProps.role}`);
-			if (userProps.role === 'ADMIN' && caller.role !== 'ADMIN')
-				return res.status(403).send('User is not allowed to create a new admin');
+					.send(`User must be an admin to create another user with the role ${userProps.role}`);
 
 			try {
 				const user = await createUser(userProps);
