@@ -8,6 +8,7 @@ import { CreateUserProps, MinimalUser, UpdateUserProps, UsableUser, UserToken } 
 export async function findUsers(): Promise<MinimalUser[]> {
 	return await prismaClient.user.findMany({
 		select: { handle: true, name: true, role: true },
+		orderBy: [{ name: 'asc' }, { handle: 'asc' }],
 	});
 }
 
