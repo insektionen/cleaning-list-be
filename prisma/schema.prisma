@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
@@ -11,12 +12,12 @@ datasource db {
 }
 
 model User {
-  handle       String      @id
+  handle       String      @id @db.Citext
   name         String
   email        String?     @unique
   passwordHash String
   role         Role        @default(BASE)
-  lists        List[]
+  createdLists List[]      @relation(name: "listCreator")
   visible      Boolean     @default(true)
   lastSignedIn DateTime?
   token        UserToken?
@@ -33,7 +34,7 @@ model UserToken {
   expiresAt DateTime
   user      User     @relation(fields: [userHandle], references: [handle], onDelete: Cascade)
 
-  userHandle String @unique
+  userHandle String @unique @db.Citext
 }
 
 model List {
@@ -49,11 +50,11 @@ model List {
   comment     String?
   submitted   Boolean  @default(false)
   verified    Boolean  @default(false)
-  createdBy   User     @relation(fields: [createdByHandle], references: [handle])
+  createdBy   User     @relation(fields: [createdByHandle], references: [handle], name: "listCreator")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
 
-  createdByHandle String
+  createdByHandle String @db.Citext
 }
 
 model Secret {
@@ -61,7 +62,7 @@ model Secret {
   secretHash  String
   generatedBy User   @relation(fields: [generatedByHandle], references: [handle])
 
-  generatedByHandle String
+  generatedByHandle String @db.Citext
 }
 
 model ResetToken {
@@ -69,7 +70,7 @@ model ResetToken {
   validUntil DateTime
   user       User     @relation(fields: [userHandle], references: [handle], onDelete: Cascade)
 
-  userHandle String @unique
+  userHandle String @unique @db.Citext
 }
 
 enum Role {
