@@ -46,14 +46,13 @@ export async function findUserFromEmail(email: string): Promise<UsableUser | nul
 }
 
 export async function createUser(
-	{ password, handle, ...props }: CreateUserProps,
+	{ password, ...props }: CreateUserProps,
 	setSignIn = false
 ): Promise<UsableUser> {
 	const passwordHash = await generatePasswordHash(password);
 	return (await prismaClient.user.create({
 		data: {
 			...props,
-			handle: handle.toLowerCase(),
 			passwordHash,
 			lastSignedIn: setSignIn ? new Date() : undefined,
 			token: await newToken(),
