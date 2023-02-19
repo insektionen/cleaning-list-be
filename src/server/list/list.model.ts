@@ -1,4 +1,4 @@
-import { dateRegex, phoneNumberRegex } from '../../utils/regex';
+import { phoneNumberRegex } from '../../utils/regex';
 import validateDate from '../../utils/validateDate';
 import { MinimalUser } from '../user/user.model';
 
@@ -25,7 +25,10 @@ export type UsableList = {
 	submitted: boolean;
 	verified: boolean;
 	createdBy: MinimalUser;
+	ownedBy: MinimalUser;
 };
+
+export type MissingOwnerList = Omit<UsableList, 'ownedBy'> & { ownedBy: MinimalUser | null };
 
 export type Structure = {
 	name: string;
@@ -48,6 +51,7 @@ export type UpdateListProps = {
 	comment?: string | null;
 	submitted?: boolean;
 	verified?: boolean;
+	owner?: string;
 };
 
 export function isCreateListProps(props: any): props is CreateListProps {
@@ -74,7 +78,8 @@ export function isUpdateListProps(props: any): props is UpdateListProps {
 		(listProps.eventDate === undefined || validateDate(listProps.eventDate)) &&
 		(['string', 'undefined'].includes(typeof listProps.comment) || listProps.comment === null) &&
 		['boolean', 'undefined'].includes(typeof listProps.submitted) &&
-		['boolean', 'undefined'].includes(typeof listProps.verified)
+		['boolean', 'undefined'].includes(typeof listProps.verified) &&
+		['string', 'undefined'].includes(typeof listProps.owner)
 	);
 }
 

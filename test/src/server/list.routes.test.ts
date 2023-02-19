@@ -8,6 +8,7 @@ import { CreateListProps, UpdateListProps } from '../../../src/server/list/list.
 import { faker } from '@faker-js/faker';
 import { tokenAuthentication } from '../../../src/utils/authentication';
 import moment from 'moment';
+import { findUser } from '../../../src/server/user/user.service';
 
 const server = serverGenerator(false);
 
@@ -19,6 +20,11 @@ jest.mock('../../../src/server/list/list.service', () => ({
 	findList: jest.fn(),
 	createList: jest.fn(),
 	updateList: jest.fn(),
+}));
+
+jest.mock('../../../src/server/user/user.service', () => ({
+	__esModule: true,
+	findUser: jest.fn(),
 }));
 
 jest.mock('../../../src/utils/authentication', () => {
@@ -220,6 +226,35 @@ describe('PATCH /lists/:id', () => {
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
 	});
 
+	it('returns 409 when trying to change owner of a submitted list', async () => {
+		when(tokenAuthentication).mockResolvedValue(primary);
+		const list = usableListFactory({ id: 1, createdBy: primary, submitted: true });
+		when(findList).calledWith(1).mockResolvedValue(list);
+
+		const props = { owner: 'other-user' };
+		const response = await supertest(server).patch('/lists/1').send(props);
+
+		expect(response.status).toBe(409);
+		expect(findList).toHaveBeenCalledTimes(1);
+		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+	});
+
+	it("returns 404 when trying to change list owner to a user that doesn't exist", async () => {
+		when(tokenAuthentication).mockResolvedValue(primary);
+		const list = usableListFactory({ id: 1, createdBy: primary });
+		when(findList).calledWith(1).mockResolvedValue(list);
+		const otherUserHandle = 'other-user';
+		when(findUser).calledWith(otherUserHandle).mockResolvedValue(null);
+
+		const props = { owner: otherUserHandle };
+		const response = await supertest(server).patch('/lists/1').send(props);
+
+		expect(response.status).toBe(404);
+		expect(findList).toHaveBeenCalledTimes(1);
+		expect(findUser).toHaveBeenCalledTimes(1);
+		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+	});
+
 	it("returns 409 when trying to verify a list that isn't submitted", async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
 		const list = usableListFactory({ id: 1 });
@@ -250,7 +285,7 @@ describe('PATCH /lists/:id', () => {
 	it('returns 403 when manager tries to verify their own list', async () => {
 		const user = usableUserFactory({ role: 'MANAGER' });
 		when(tokenAuthentication).mockResolvedValue(user);
-		const list = usableListFactory({ id: 1, submitted: true, createdBy: user });
+		const list = usableListFactory({ id: 1, submitted: true, ownedBy: user });
 		when(findList).calledWith(1).mockResolvedValue(list);
 
 		const props = { verified: true };

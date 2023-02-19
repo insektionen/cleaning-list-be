@@ -3,6 +3,7 @@ import moment from 'moment';
 import { roleIsAtLeast, tokenAuthentication } from '../../utils/authentication';
 import bodyFilter from '../../utils/bodyFilter';
 import route from '../../utils/route';
+import { findUser } from '../user/user.service';
 import { isCreateListProps, isUpdateListProps } from './list.model';
 import { createList, findList, findLists, updateList } from './list.service';
 
@@ -67,6 +68,7 @@ export default function (server: Express) {
 				'comment',
 				'submitted',
 				'verified',
+				'owner',
 			]);
 			if (!isUpdateListProps(props))
 				return res.status(422).send('Provided properties cannot edit a list');
@@ -74,24 +76,37 @@ export default function (server: Express) {
 				return res.status(422).send('Event date cannot be in the future');
 
 			if (
-				caller.handle !== list.createdBy.handle &&
+				caller.handle !== list.ownedBy.handle &&
 				!roleIsAtLeast(caller.role, 'MOD') &&
 				Object.keys(props).some((value) =>
-					['comment', 'eventDate', 'fields', 'phoneNumber', 'responsible', 'submitted'].includes(
-						value
-					)
+					[
+						'comment',
+						'eventDate',
+						'fields',
+						'phoneNumber',
+						'responsible',
+						'submitted',
+						'owner',
+					].includes(value)
 				)
 			)
 				return res
 					.status(403)
-					.send('Must be creator of the list or a moderator to change those properties');
+					.send('Must be owner of the list or a moderator to change those properties');
+
+			if (props.owner) {
+				if (list.submitted)
+					return res.status(409).send("It's not possible to change owner of a submitted list");
+				if (!(await findUser(props.owner)))
+					return res.status(404).send(`No user with the handle '${props.owner}' exists`);
+			}
 
 			if (props.verified && !list.submitted)
 				return res.status(409).send("It's not possible to verify a list that isn't submitted");
 			if (
 				props.verified !== undefined &&
 				!roleIsAtLeast(caller.role, 'MOD') &&
-				(caller.role !== 'MANAGER' || caller.handle === list.createdBy.handle)
+				(caller.role !== 'MANAGER' || caller.handle === list.ownedBy.handle)
 			)
 				return res.status(403).send('User is not allowed to verify this list');
 
