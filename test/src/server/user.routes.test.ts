@@ -77,7 +77,7 @@ describe('GET /users', () => {
 	it('returns 200 for correct request', async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
 		const users = minimalUserFactory([{}, {}, {}]);
-		when(findUsers).calledWith().mockResolvedValue(users);
+		when(findUsers).calledWith({}, {}).mockResolvedValue(users);
 
 		const response = await supertest(server).get('/users');
 

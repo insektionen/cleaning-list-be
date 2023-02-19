@@ -1,14 +1,41 @@
-import { ResetToken } from '@prisma/client';
+import { Prisma, ResetToken, Role } from '@prisma/client';
 import moment from 'moment';
 import prismaClient from '../../prismaClient';
 import { generatePasswordHash } from '../../utils/bcrypt';
 import nanoid from '../../utils/nanoid';
+import { PaginationParams } from '../../utils/pagination';
 import { CreateUserProps, MinimalUser, UpdateUserProps, UsableUser, UserToken } from './user.model';
 
-export async function findUsers(): Promise<MinimalUser[]> {
+type FindUsersFilter = {
+	search?: string;
+	role?: Role;
+};
+
+export async function findUsers(
+	filter: FindUsersFilter = {},
+	{ limit, page }: Partial<PaginationParams> = {}
+): Promise<MinimalUser[]> {
+	const where: Prisma.UserWhereInput = {};
+	if (filter.search) {
+		if (filter.search.charAt(0) === '@') {
+			where.handle = filter.search.slice(1);
+		} else {
+			where.OR = [
+				{ handle: { contains: filter.search, mode: 'insensitive' } },
+				{ name: { contains: filter.search, mode: 'insensitive' } },
+			];
+		}
+	}
+	if (filter.role) {
+		where.role = filter.role;
+	}
+
 	return await prismaClient.user.findMany({
 		select: { handle: true, name: true, role: true },
+		where,
 		orderBy: [{ name: 'asc' }, { handle: 'asc' }],
+		take: limit,
+		skip: limit && page ? limit * (page - 1) : undefined,
 	});
 }
 

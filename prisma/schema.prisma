@@ -18,6 +18,7 @@ model User {
   passwordHash String
   role         Role        @default(BASE)
   createdLists List[]      @relation(name: "listCreator")
+  ownedLists   List[]      @relation(name: "listOwner")
   visible      Boolean     @default(true)
   lastSignedIn DateTime?
   token        UserToken?
@@ -51,10 +52,12 @@ model List {
   submitted   Boolean  @default(false)
   verified    Boolean  @default(false)
   createdBy   User     @relation(fields: [createdByHandle], references: [handle], name: "listCreator")
+  ownedBy     User?    @relation(fields: [ownedByHandle], references: [handle], name: "listOwner")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
 
-  createdByHandle String @db.Citext
+  createdByHandle String  @db.Citext
+  ownedByHandle   String? @db.Citext
 }
 
 model Secret {

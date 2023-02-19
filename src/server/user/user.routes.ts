@@ -28,6 +28,8 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import route from '../../utils/route';
 import bodyFilter from '../../utils/bodyFilter';
+import { getQueryField } from '../../utils/parseQuery';
+import { parseRole } from '../../utils/parser';
 
 export default function (server: Express) {
 	server.get(
@@ -36,7 +38,12 @@ export default function (server: Express) {
 			const caller = await tokenAuthentication(req, res);
 			if (!caller) return res.headersSent || res.sendStatus(500);
 
-			const users = await findUsers();
+			const page = getQueryField(req, 'page', Number);
+			const limit = getQueryField(req, 'limit', Number);
+			const search = getQueryField(req, 'search');
+			const role = getQueryField(req, 'role', parseRole);
+
+			const users = await findUsers({ search, role }, { page, limit });
 			res.status(200).send(users);
 		})
 	);
