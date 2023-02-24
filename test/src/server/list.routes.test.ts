@@ -4,11 +4,12 @@ import serverGenerator from '../../../src/server';
 import supertest from 'supertest';
 import { when } from 'jest-when';
 import { createList, findList, findLists, updateList } from '../../../src/server/list/list.service';
-import { CreateListProps, UpdateListProps } from '../../../src/server/list/list.model';
+import { CreateListProps, UpdateListProps, UsableList } from '../../../src/server/list/list.model';
 import { faker } from '@faker-js/faker';
 import { tokenAuthentication } from '../../../src/utils/authentication';
 import moment from 'moment';
 import { findUser } from '../../../src/server/user/user.service';
+import { MinimalUser, UsableUser } from '../../../src/server/user/user.model';
 
 const server = serverGenerator(false);
 
@@ -154,8 +155,8 @@ describe('PATCH /lists/:id', () => {
 		const props: UpdateListProps = {
 			comment: faker.lorem.sentence(),
 		};
-		const expectedList = { ...list, ...props };
-		when(updateList).calledWith(list.id, props, list).mockResolvedValue(expectedList);
+		const expectedList = { ...list, coment: props.comment };
+		when(updateList).calledWith(list.id, props, list, primary).mockResolvedValue(expectedList);
 
 		const result = await supertest(server).patch('/lists/1').send(props);
 
@@ -228,7 +229,7 @@ describe('PATCH /lists/:id', () => {
 
 	it('returns 409 when trying to change owner of a submitted list', async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
-		const list = usableListFactory({ id: 1, createdBy: primary, submitted: true });
+		const list = usableListFactory({ id: 1, createdBy: primary, submittedAt: faker.date.past() });
 		when(findList).calledWith(1).mockResolvedValue(list);
 
 		const props = { owner: 'other-user' };
@@ -271,7 +272,7 @@ describe('PATCH /lists/:id', () => {
 	it('returns 403 if a non manager (or higher) tries verify a list', async () => {
 		const user = usableUserFactory({ role: 'BASE' });
 		when(tokenAuthentication).mockResolvedValue(user);
-		const list = usableListFactory({ id: 1, submitted: true });
+		const list = usableListFactory({ id: 1, submittedAt: faker.date.past() });
 		when(findList).calledWith(1).mockResolvedValue(list);
 
 		const props = { verified: true };
@@ -285,7 +286,7 @@ describe('PATCH /lists/:id', () => {
 	it('returns 403 when manager tries to verify their own list', async () => {
 		const user = usableUserFactory({ role: 'MANAGER' });
 		when(tokenAuthentication).mockResolvedValue(user);
-		const list = usableListFactory({ id: 1, submitted: true, ownedBy: user });
+		const list = usableListFactory({ id: 1, submittedAt: faker.date.past(), ownedBy: user });
 		when(findList).calledWith(1).mockResolvedValue(list);
 
 		const props = { verified: true };
@@ -298,22 +299,28 @@ describe('PATCH /lists/:id', () => {
 
 	it('returns 200 when submitting an incomplete list with complementary props', async () => {
 		when(tokenAuthentication).mockResolvedValue(primary);
-		const list = usableListFactory({ id: 1 });
+		const list = usableListFactory({ id: 1, ownedBy: minimalizeUser(primary) });
 		when(findList).calledWith(1).mockResolvedValue(list);
+
 		const props = {
 			submitted: true,
 			eventDate: moment().format('YYYY-MM-DD'),
 			phoneNumber: faker.phone.number().replace(/[ \-\(\)x\.]/g, ''),
 			responsible: faker.name.fullName(),
 		};
-		const expectedList = { ...list, ...props };
-		when(updateList).calledWith(list.id, props, list).mockResolvedValue(expectedList);
+		const expectedList = {
+			...list,
+			eventDate: props.eventDate,
+			phoneNumber: props.phoneNumber,
+			responsible: props.responsible,
+			submittedAt: faker.date.recent(),
+		};
+		when(updateList).calledWith(list.id, props, list, primary).mockResolvedValue(expectedList);
 
 		const response = await supertest(server).patch('/lists/1').send(props);
 
-		if (response.status !== 200) console.log(props.phoneNumber);
 		expect(response.status).toBe(200);
-		expect(response.body).toEqual(expectedList);
+		expect(response.body).toEqual(comparableList(expectedList));
 		expect(findList).toHaveBeenCalledTimes(1);
 		expect(updateList).toHaveBeenCalledTimes(1);
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
@@ -332,6 +339,35 @@ describe('PATCH /lists/:id', () => {
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
 	});
 
+	it('returns 200 and changes owner when submitting a list owned by another user', async () => {
+		when(tokenAuthentication).mockResolvedValue(primary);
+		const list = usableListFactory({
+			id: 1,
+			responsible: faker.name.fullName(),
+			phoneNumber: faker.phone.number().replace(/[ \-\(\)x\.]/g, ''),
+			eventDate: moment().format('YYYY-MM-DD'),
+		});
+		when(findList).calledWith(1).mockResolvedValue(list);
+
+		const props = { submitted: true };
+		const expectedList = {
+			...list,
+			submittedAt: faker.date.recent(),
+			ownedBy: minimalizeUser(primary),
+		};
+		when(updateList)
+			.calledWith(list.id, { ...props, owner: primary.handle }, list, primary)
+			.mockResolvedValue(expectedList);
+
+		const response = await supertest(server).patch('/lists/1').send(props);
+
+		expect(response.status).toBe(200);
+		expect(response.body).toEqual(comparableList(expectedList));
+		expect(findList).toHaveBeenCalledTimes(1);
+		expect(updateList).toHaveBeenCalledTimes(1);
+		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
+	});
+
 	it('returns 500 when tokenAuthentication returns null and sends no response', async () => {
 		when(tokenAuthentication).mockResolvedValue(null);
 
@@ -341,3 +377,13 @@ describe('PATCH /lists/:id', () => {
 		expect(tokenAuthentication).toHaveBeenCalledTimes(1);
 	});
 });
+
+function minimalizeUser({ handle, name, role }: UsableUser): MinimalUser {
+	return { handle, name, role };
+}
+
+function comparableList(
+	list: UsableList
+): Omit<UsableList, 'submittedAt'> & { submittedAt: string | null } {
+	return { ...list, submittedAt: list.submittedAt?.toISOString() ?? null };
+}

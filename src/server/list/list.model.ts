@@ -1,14 +1,15 @@
 import { phoneNumberRegex } from '../../utils/regex';
 import validateDate from '../../utils/validateDate';
-import { MinimalUser } from '../user/user.model';
+import { MinimalUser, UsableUser } from '../user/user.model';
 
 export type MinimalList = {
 	id: number;
 	type: string;
 	version: string;
 	eventDate: string | null;
-	submitted: boolean;
-	verified: boolean;
+	status: ListStatus;
+	submittedAt: Date | null;
+	verified: ListVerification | null;
 };
 
 export type UsableList = {
@@ -22,13 +23,25 @@ export type UsableList = {
 	phoneNumber: string | null;
 	eventDate: string | null;
 	comment: string | null;
-	submitted: boolean;
-	verified: boolean;
+	status: ListStatus;
+	submittedAt: Date | null;
+	verified: ListVerification | null;
 	createdBy: MinimalUser;
 	ownedBy: MinimalUser;
 };
 
-export type MissingOwnerList = Omit<UsableList, 'ownedBy'> & { ownedBy: MinimalUser | null };
+export type IncompleteMinimalList = Omit<MinimalList, 'status'>;
+
+export type IncompleteUsableList = Omit<UsableList, 'ownedBy' | 'status'> & {
+	ownedBy: MinimalUser | null;
+};
+
+export type ListStatus = 'open' | 'submitted' | 'verified';
+
+export type ListVerification = {
+	verifiedAt: Date;
+	verifiedBy: MinimalUser;
+};
 
 export type Structure = {
 	name: string;

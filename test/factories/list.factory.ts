@@ -8,8 +8,9 @@ export const minimalListFactory = factory<MinimalList>(() => ({
 	type: faker.lorem.word(),
 	version: 'v' + faker.random.numeric(1),
 	eventDate: null,
-	submitted: false,
-	verified: false,
+	status: 'open',
+	submittedAt: null,
+	verified: null,
 }));
 
 export const usableListFactory = factory<UsableList>(() => {
@@ -29,8 +30,9 @@ export const usableListFactory = factory<UsableList>(() => {
 		phoneNumber: null,
 		eventDate: null,
 		comment: null,
-		submitted: false,
-		verified: false,
+		status: 'open',
+		submittedAt: null,
+		verified: null,
 		createdBy: creator,
 		ownedBy: creator,
 	};
