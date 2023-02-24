@@ -95,13 +95,13 @@ export default function (server: Express) {
 					.send('Must be owner of the list or a moderator to change those properties');
 
 			if (props.owner) {
-				if (list.submitted)
+				if (list.submittedAt)
 					return res.status(409).send("It's not possible to change owner of a submitted list");
 				if (!(await findUser(props.owner)))
 					return res.status(404).send(`No user with the handle '${props.owner}' exists`);
 			}
 
-			if (props.verified && !list.submitted)
+			if (props.verified && !list.submittedAt)
 				return res.status(409).send("It's not possible to verify a list that isn't submitted");
 			if (
 				props.verified !== undefined &&
@@ -121,7 +121,9 @@ export default function (server: Express) {
 			)
 				return res.status(409).send(`Can't submit a list that is missing required properties`);
 
-			const updatedList = await updateList(id, props, list);
+			if (props.submitted && list.ownedBy.handle !== caller.handle) props.owner = caller.handle;
+
+			const updatedList = await updateList(id, props, list, caller);
 
 			res.status(200).send(updatedList);
 		})

@@ -12,17 +12,18 @@ datasource db {
 }
 
 model User {
-  handle       String      @id @db.Citext
-  name         String
-  email        String?     @unique
-  passwordHash String
-  role         Role        @default(BASE)
-  createdLists List[]      @relation(name: "listCreator")
-  ownedLists   List[]      @relation(name: "listOwner")
-  visible      Boolean     @default(true)
-  lastSignedIn DateTime?
-  token        UserToken?
-  resetToken   ResetToken?
+  handle        String             @id @db.Citext
+  name          String
+  email         String?            @unique
+  passwordHash  String
+  role          Role               @default(BASE)
+  createdLists  List[]             @relation(name: "listCreator")
+  ownedLists    List[]             @relation(name: "listOwner")
+  verifiedLists ListVerification[]
+  visible       Boolean            @default(true)
+  lastSignedIn  DateTime?
+  token         UserToken?
+  resetToken    ResetToken?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
@@ -39,7 +40,7 @@ model UserToken {
 }
 
 model List {
-  id          Int      @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   type        String
   version     String
   structure   Json
@@ -49,15 +50,24 @@ model List {
   phoneNumber String?
   eventDate   String?
   comment     String?
-  submitted   Boolean  @default(false)
-  verified    Boolean  @default(false)
-  createdBy   User     @relation(fields: [createdByHandle], references: [handle], name: "listCreator")
-  ownedBy     User?    @relation(fields: [ownedByHandle], references: [handle], name: "listOwner")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
+  submittedAt DateTime?
+  verified    ListVerification?
+  createdBy   User              @relation(fields: [createdByHandle], references: [handle], name: "listCreator")
+  ownedBy     User?             @relation(fields: [ownedByHandle], references: [handle], name: "listOwner")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @default(now())
 
   createdByHandle String  @db.Citext
   ownedByHandle   String? @db.Citext
+}
+
+model ListVerification {
+  list       List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  verifiedAt DateTime @default(now())
+  verifiedBy User     @relation(fields: [userHandle], references: [handle], onDelete: Cascade)
+
+  listId     Int    @id
+  userHandle String @db.Citext
 }
 
 model Secret {
